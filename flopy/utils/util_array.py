@@ -85,8 +85,14 @@ class ArrayFormat(object):
         self._format = None
         self._width = None
         self._decimal = None
-        self._freeformat_model = bool(u2d.model.array_free_format)
-        self._arrayformat_model = bool(u2d.model.array_format)
+        if hasattr(u2d.package, "array_free_format"):
+            self._freeformat_model = bool(u2d.package.array_free_format)
+        else:
+            self._freeformat_model = bool(u2d.model.array_free_format)
+        if hasattr(u2d.package, "array_format"):
+            self._arrayformat_model = bool(u2d.package.array_format)
+        else:
+            self._arrayformat_model = bool(u2d.model.array_format)
 
         self.default_float_width = 15
         self.default_int_width = 10
@@ -431,9 +437,7 @@ class Util3d(object):
 
     Parameters
     ----------
-    model : model object
-        The model object (of type :class:`flopy.modflow.mf.Modflow`) to which
-        this package will be added.
+    package : package object
     shape : length 3 tuple
         shape of the 3-D array, typically (nlay,nrow,ncol)
     dtype : [np.int,np.float32,np.bool]
@@ -487,7 +491,7 @@ class Util3d(object):
 
     """
 
-    def __init__(self, model, shape, dtype, value, name,
+    def __init__(self, package, shape, dtype, value, name,
                  fmtin=None, cnstnt=1.0, iprn=-1, locat=None,
                  ext_unit_dict=None):
         """
@@ -496,9 +500,9 @@ class Util3d(object):
         if isinstance(value, Util3d):
             for attr in value.__dict__.items():
                 setattr(self,attr[0], attr[1])
-            self.model = model
+            self.model = package.parent
             for i, u2d in enumerate(self.util_2ds):
-                self.util_2ds[i] = Util2d(model, u2d.shape, u2d.dtype,
+                self.util_2ds[i] = Util2d(package, u2d.shape, u2d.dtype,
                                           u2d._array, name=u2d.name,
                                           fmtin=u2d.format.fortran,
                                           locat=locat,
@@ -506,7 +510,7 @@ class Util3d(object):
 
             return
         assert len(shape) == 3, 'Util3d:shape attribute must be length 3'
-        self.model = model
+        self.model = package.parent
         self.shape = shape
         self.dtype = dtype
         self.__value = value
@@ -528,10 +532,10 @@ class Util3d(object):
         self.iprn = iprn
         self.locat = locat
         self.ext_filename_base = []
-        if model.external_path is not None:
+        if self.model.external_path is not None:
             for k in range(shape[0]):
                 self.ext_filename_base. \
-                    append(os.path.join(model.external_path,
+                    append(os.path.join(self.model.external_path,
                                         self.name_base[k].replace(' ', '_')))
         else:
             for k in range(shape[0]):
@@ -798,15 +802,15 @@ class Util3d(object):
         return u2ds
 
     @staticmethod
-    def load(f_handle, model, shape, dtype, name, ext_unit_dict=None):
+    def load(f_handle, package, shape, dtype, name, ext_unit_dict=None):
         assert len(shape) == 3, 'Util3d:shape attribute must be length 3'
         nlay, nrow, ncol = shape
         u2ds = []
         for k in range(nlay):
-            u2d = Util2d.load(f_handle, model, (nrow, ncol), dtype, name,
+            u2d = Util2d.load(f_handle, package, (nrow, ncol), dtype, name,
                               ext_unit_dict=ext_unit_dict)
             u2ds.append(u2d)
-        u3d = Util3d(model, shape, dtype, u2ds, name)
+        u3d = Util3d(package, shape, dtype, u2ds, name)
         return u3d
 
     def __mul__(self, other):
@@ -834,9 +838,7 @@ class Transient3d(object):
 
     Parameters
     ----------
-    model : model object
-        The model object (of type :class:`flopy.modflow.mf.Modflow`) to which
-        this package will be added.
+    package : package object
     shape : length 3 tuple
         shape of the 3-D transient arrays, typically (nlay,nrow,ncol)
     dtype : [np.int,np.float32,np.bool]
@@ -895,17 +897,17 @@ class Transient3d(object):
 
     """
 
-    def __init__(self, model, shape, dtype, value, name, fmtin=None,
+    def __init__(self, package, shape, dtype, value, name, fmtin=None,
                  cnstnt=1.0, iprn=-1, ext_filename=None, locat=None,
                  bin=False):
 
         if isinstance(value, Transient3d):
             for attr in value.__dict__.items():
                 setattr(self, attr[0], attr[1])
-            self.model = model
+            self.model = package.parent
             return
 
-        self.model = model
+        self.model = package.parent
         assert len(shape) == 3, "Transient3d error: shape arg must be " + \
                                 "length three (nlay, nrow, ncol), not " + \
                                 str(shape)
@@ -1058,9 +1060,7 @@ class Transient2d(object):
 
     Parameters
     ----------
-    model : model object
-        The model object (of type :class:`flopy.modflow.mf.Modflow`) to which
-        this package will be added.
+    pacakge : package object
     shape : length 2 tuple
         shape of the 2-D transient arrays, typically (nrow,ncol)
     dtype : [np.int,np.float32,np.bool]
@@ -1119,7 +1119,7 @@ class Transient2d(object):
 
     """
 
-    def __init__(self, model, shape, dtype, value, name, fmtin=None,
+    def __init__(self, package, shape, dtype, value, name, fmtin=None,
                  cnstnt=1.0, iprn=-1, ext_filename=None, locat=None,
                  bin=False):
 
@@ -1127,16 +1127,16 @@ class Transient2d(object):
             for attr in value.__dict__.items():
                 setattr(self, attr[0], attr[1])
             for kper, u2d in self.transient_2ds.items():
-                self.transient_2ds[kper] = Util2d(model, u2d.shape, u2d.dtype,
+                self.transient_2ds[kper] = Util2d(package, u2d.shape, u2d.dtype,
                                                   u2d._array, name=u2d.name,
                                                   fmtin=u2d.format.fortran,
                                                   locat=locat,
                                                   cnstnt=u2d.cnstnt)
 
-            self.model = model
+            self.model = package.parent
             return
 
-        self.model = model
+        self.model = package.parent
         assert len(shape) == 2, "Transient2d error: shape arg must be " + \
                                 "length two (nrow, ncol), not " + \
                                 str(shape)
@@ -1148,9 +1148,9 @@ class Transient2d(object):
         self.cnstst = cnstnt
         self.iprn = iprn
         self.locat = locat
-        if model.external_path is not None:
+        if self.model.external_path is not None:
             self.ext_filename_base = \
-                os.path.join(model.external_path,
+                os.path.join(self.model.external_path,
                              self.name_base.replace(' ', '_'))
         else:
             self.ext_filename_base = self.name_base.replace(' ', '_')
@@ -1501,9 +1501,7 @@ class Util2d(object):
 
     Parameters
     ----------
-    model : model object
-        The model object (of type :class:`flopy.modflow.mf.Modflow`) to which
-        this package will be added.
+    package : package object
     shape : lenght 3 tuple
         shape of the 3-D array
     dtype : [np.int,np.float32,np.bool]
@@ -1577,7 +1575,7 @@ class Util2d(object):
 
     """
 
-    def __init__(self, model, shape, dtype, value, name, fmtin=None,
+    def __init__(self, package, shape, dtype, value, name, fmtin=None,
                  cnstnt=1.0, iprn=-1, ext_filename=None, locat=None, bin=False,
                  how=None):
         """
@@ -1597,7 +1595,7 @@ class Util2d(object):
         if isinstance(value, Util2d):
             for attr in value.__dict__.items():
                 setattr(self, attr[0], attr[1])
-            self.model = model
+            self.model = package.parent
             self.name = name
             self._ext_filename = self.name.replace(' ', '_') + ".ref"
             if ext_filename is not None:
@@ -1615,7 +1613,8 @@ class Util2d(object):
         if ext_filename is not None:
             ext_filename = ext_filename.lower()
 
-        self.model = model
+        self.model = package.parent
+        self.package = package
         for s in shape:
             assert isinstance(s,
                               numbers.Integral), "all shape elements must be integers, " + \
@@ -2395,7 +2394,7 @@ class Util2d(object):
                             str(type(value)))
 
     @staticmethod
-    def load(f_handle, model, shape, dtype, name, ext_unit_dict=None):
+    def load(f_handle, package, shape, dtype, name, ext_unit_dict=None):
         """
         functionality to load Util2d instance from an existing
         model input file.
@@ -2413,9 +2412,13 @@ class Util2d(object):
                     curr_unit = cunit
                     break
 
+        model = package.parent
+
         # Allows for special MT3D array reader
         array_format = None
-        if hasattr(model, 'array_format'):
+        if hasattr(package,"array_format"):
+            array_format = package.array_format
+        elif hasattr(model, 'array_format'):
             array_format = model.array_format
 
         cr_dict = Util2d.parse_control_record(f_handle.readline(),
